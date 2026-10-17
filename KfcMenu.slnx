@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="KfcMenu.Core/KfcMenu.Core.csproj" />
+  <Project Path="KfcMenu.Web/KfcMenu.Web.csproj" />
+</Solution>
