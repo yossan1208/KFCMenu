@@ -1,7 +1,120 @@
-﻿@page "/"
+@page "/"
+@using KfcMenu.Core.Models
+@using KfcMenu.Core.Services
+@inject HttpClient Http
 
-<PageTitle>Home</PageTitle>
+<PageTitle>KFC最安計算</PageTitle>
 
-<h1>Hello, world!</h1>
+<main class="app">
+    <h1>KFC最安計算</h1>
 
-Welcome to your new app.
+    @if (loadError is not null)
+    {
+        <p class="error">メニューを読み込めませんでした: @loadError</p>
+    }
+    else if (menu is null)
+    {
+        <p>読み込み中...</p>
+    }
+    else
+    {
+        <div class="products">
+            <div class="product-row header">
+                <span>商品</span>
+                <span>必要数</span>
+                <span>余剰の上限</span>
+            </div>
+            @foreach (var product in menu.Products)
+            {
+                <div class="product-row">
+                    <span class="name">@product.Name</span>
+                    <input type="number" min="0" inputmode="numeric" aria-label="@($"{product.Name}の必要数")" @bind="product.Required" />
+                    <input type="number" min="0" inputmode="numeric" aria-label="@($"{product.Name}の余剰の上限")" @bind="product.MaxSurplus" />
+                </div>
+            }
+        </div>
+
+        <button class="calc" @onclick="Calculate">計算</button>
+
+        @if (inputError is not null)
+        {
+            <p class="error">@inputError</p>
+        }
+        else if (calculated)
+        {
+            if (result is null)
+            {
+                <p class="result">条件を満たす組み合わせが見つかりませんでした</p>
+            }
+            else
+            {
+                <ul class="result">
+                    @foreach (var (variant, count) in result.Items)
+                    {
+                        <li>@variant.Option.Name × @count@DescribePicks(variant)</li>
+                    }
+                </ul>
+                <p class="total">合計 @result.TotalPrice.ToString("N0")円</p>
+            }
+        }
+    }
+</main>
+
+@code {
+    private MenuData? menu;
+    private List<Variant> variants = new();
+    private Dictionary<string, string> productNames = new();
+    private string? loadError;
+    private string? inputError;
+    private ComboResult? result;
+    private bool calculated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var json = await Http.GetStringAsync("data/menu.json");
+            menu = MenuParser.Parse(json);
+            variants = VariantExpander.Expand(menu.Options);
+            productNames = menu.Products.ToDictionary(p => p.Id, p => p.Name);
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+    }
+
+    private void Calculate()
+    {
+        calculated = false;
+        result = null;
+        inputError = null;
+
+        if (menu!.Products.Any(p => p.Required < 0 || p.MaxSurplus < 0))
+        {
+            inputError = "必要数と余剰の上限には0以上の数を入力してください。";
+            return;
+        }
+
+        result = CheapestComboFinder.FindCheapest(variants, menu.Products);
+        calculated = true;
+    }
+
+    // Picks は枠の順に並んでいるので、枠の Count ずつ区切ると枠ごとの選択になる
+    private string DescribePicks(Variant variant)
+    {
+        if (variant.Picks.Count == 0)
+        {
+            return "";
+        }
+        var parts = new List<string>();
+        var offset = 0;
+        foreach (var slot in variant.Option.Choices)
+        {
+            var names = variant.Picks.Skip(offset).Take(slot.Count).Select(id => productNames.GetValueOrDefault(id, id));
+            parts.Add($"{slot.Label}: {string.Join(", ", names)}");
+            offset += slot.Count;
+        }
+        return $"（{string.Join(" / ", parts)}）";
+    }
+}
