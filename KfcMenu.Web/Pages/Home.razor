@@ -28,15 +28,19 @@
             {
                 <div class="product-row">
                     <span class="name">@product.Name</span>
-                    <input type="number" min="0" inputmode="numeric" aria-label="@($"{product.Name}の必要数")" @bind="product.Required" />
-                    <input type="number" min="0" inputmode="numeric" aria-label="@($"{product.Name}の余剰の上限")" @bind="product.MaxSurplus" />
+                    <input type="number" min="0" max="99" inputmode="numeric" aria-label="@($"{product.Name}の必要数")" @bind="product.Required" />
+                    <input type="number" min="0" max="99" inputmode="numeric" aria-label="@($"{product.Name}の余剰の上限")" @bind="product.MaxSurplus" />
                 </div>
             }
         </div>
 
-        <button class="calc" @onclick="Calculate">計算</button>
+        <button class="calc" @onclick="Calculate" disabled="@calculating">計算</button>
 
-        @if (inputError is not null)
+        @if (calculating)
+        {
+            <p class="calculating">計算中...</p>
+        }
+        else if (inputError is not null)
         {
             <p class="error">@inputError</p>
         }
@@ -68,6 +72,7 @@
     private string? inputError;
     private ComboResult? result;
     private bool calculated;
+    private bool calculating;
 
     protected override async Task OnInitializedAsync()
     {
@@ -84,20 +89,36 @@
         }
     }
 
-    private void Calculate()
+    private async Task Calculate()
     {
+        if (calculating)
+        {
+            return;
+        }
         calculated = false;
         result = null;
         inputError = null;
 
-        if (menu!.Products.Any(p => p.Required < 0 || p.MaxSurplus < 0))
+        // 0〜99に限ることで、探索の深さと状態数が抑えられる（大きすぎる数でスタックが溢れない）
+        if (menu!.Products.Any(p => p.Required is < 0 or > 99 || p.MaxSurplus is < 0 or > 99))
         {
-            inputError = "必要数と余剰の上限には0以上の数を入力してください。";
+            inputError = "必要数と余剰の上限には0〜99の数を入力してください。";
             return;
         }
 
-        result = CheapestComboFinder.FindCheapest(variants, menu.Products);
-        calculated = true;
+        // 計算は同期で重いことがあるので、先に「計算中...」を描画させてから始める
+        calculating = true;
+        try
+        {
+            StateHasChanged();
+            await Task.Delay(1);
+            result = CheapestComboFinder.FindCheapest(variants, menu.Products);
+            calculated = true;
+        }
+        finally
+        {
+            calculating = false;
+        }
     }
 
     // Picks は枠の順に並んでいるので、枠の Count ずつ区切ると枠ごとの選択になる
