@@ -409,6 +409,10 @@ public static class SetRecommender
         private readonly int[] fillOrder;
         private readonly long[] hashOf;
 
+        // 商品ごと: それを含む候補の「価格 ÷ 含まれる頼んだ商品の個数の合計」の最小値。
+        // 状態まで来るのにかかった金額の下限 = Σ state[k] × unitPrice[k]（線形緩和の双対で、どの候補も1個あたりこれより安くは配れない）
+        private readonly double[] unitPrice;
+
         // 状態（頼んだ商品ごとの合計個数、必要数で頭打ち）を1つの配列で持ち、足す→再帰→戻すで使い回す
         private readonly int[] state;
 
@@ -453,6 +457,12 @@ public static class SetRecommender
             {
                 radix[k] = radixProduct;
                 radixProduct = checked(radixProduct * (UInt128)(need[k] + 1));
+            }
+
+            unitPrice = new double[need.Length];
+            for (var k = 0; k < need.Length; k++)
+            {
+                unitPrice[k] = variantsWith[k].Min(j => (double)candidates[j].Price / candidates[j].Amounts.Sum());
             }
 
             // 候補ごとの乱数（SplitMix64）。多重集合のハッシュ = 買った候補の乱数の和（64bitなので衝突は事実上起きない）
@@ -516,13 +526,22 @@ public static class SetRecommender
                 sources.Add((j, pools));
             }
 
-            var result = new Pools(Merge(sources, byPrice: false), Merge(sources, byPrice: true));
+            // ここまでの買い方に少なくとも spentAtLeast かかっているので、ここから先は budget 以下でないと上限を超える。
+            // 超える買い方を残さないことで、上限内に収まる買い方の枠を空ける
+            var spentAtLeast = 0.0;
+            for (var k = 0; k < need.Length; k++)
+            {
+                spentAtLeast += state[k] * unitPrice[k];
+            }
+            var budget = priceCap == int.MaxValue ? int.MaxValue : priceCap - (int)Math.Floor(spentAtLeast * (1 - 1e-9));
+
+            var result = new Pools(Merge(sources, budget, byPrice: false), Merge(sources, budget, byPrice: true));
             memo[key] = result;
             return result;
         }
 
         // byPrice が false なら（単品の個数, 金額）順、true なら（金額, 単品の個数）順。同順位は足す候補の順（決定的）
-        private List<Plan> Merge(List<(int Variant, Pools Pools)> sources, bool byPrice)
+        private List<Plan> Merge(List<(int Variant, Pools Pools)> sources, int budget, bool byPrice)
         {
             var queue = new PriorityQueue<(int Source, int Position), (int First, int Second, int Source)>();
             for (var s = 0; s < sources.Count; s++)
@@ -542,7 +561,7 @@ public static class SetRecommender
                 var rest = plans[at.Position];
                 var variant = candidates[source.Variant];
                 var price = rest.Price + variant.Price;
-                if (price > priceCap && byPrice)
+                if (price > budget && byPrice)
                 {
                     // 金額順なので、残りもすべて上限を超える
                     break;
@@ -551,7 +570,7 @@ public static class SetRecommender
                 {
                     queue.Enqueue((at.Source, at.Position + 1), Priority(source, byPrice, at.Source, at.Position + 1));
                 }
-                if (price > priceCap)
+                if (price > budget)
                 {
                     continue;
                 }
