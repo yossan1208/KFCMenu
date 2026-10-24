@@ -22,14 +22,12 @@
             <div class="product-row header">
                 <span>商品</span>
                 <span>必要数</span>
-                <span>余剰の上限</span>
             </div>
             @foreach (var product in menu.Products)
             {
                 <div class="product-row">
                     <span class="name">@product.Name</span>
                     <input type="number" min="0" max="99" inputmode="numeric" aria-label="@($"{product.Name}の必要数")" @bind="product.Required" />
-                    <input type="number" min="0" max="99" inputmode="numeric" aria-label="@($"{product.Name}の余剰の上限")" @bind="product.MaxSurplus" />
                 </div>
             }
         </div>
@@ -46,20 +44,51 @@
         }
         else if (calculated)
         {
-            if (result is null)
-            {
-                <p class="result">条件を満たす組み合わせが見つかりませんでした</p>
-            }
-            else
-            {
-                <ul class="result">
-                    @foreach (var (variant, count) in result.Items)
-                    {
-                        <li>@variant.Option.Name × @count@DescribePicks(variant)</li>
-                    }
-                </ul>
-                <p class="total">合計 @result.TotalPrice.ToString("N0")円</p>
-            }
+            <section class="cheapest">
+                <h2>最安</h2>
+                @if (result is null)
+                {
+                    <p class="result">条件を満たす組み合わせが見つかりませんでした</p>
+                }
+                else
+                {
+                    <ul class="result">
+                        @foreach (var (variant, count) in result.Items)
+                        {
+                            <li>@variant.Option.Name × @count@DescribePicks(variant)</li>
+                        }
+                    </ul>
+                    <p class="total">合計 @result.TotalPrice.ToString("N0")円</p>
+                }
+            </section>
+
+            <section class="recommendations">
+                <h2>セットでおすすめ</h2>
+                @if (recommendations.Count == 0)
+                {
+                    <p class="result">セットを使ったおすすめはありません</p>
+                }
+                @foreach (var recommendation in recommendations)
+                {
+                    <div class="recommendation">
+                        <ul class="result">
+                            @foreach (var item in recommendation.Items)
+                            {
+                                <li>@item.Option.Name × @item.Count@DescribePicks(item)</li>
+                            }
+                        </ul>
+                        <p class="total">合計 @recommendation.TotalPrice.ToString("N0")円 <span class="diff">@DescribeDifference(recommendation)</span></p>
+                        @if (recommendation.Savings > 0)
+                        {
+                            <p class="savings">単品より@(recommendation.Savings.ToString("N0"))円お得</p>
+                        }
+                        @if (DescribeExtras(recommendation) is { Length: > 0 } extras)
+                        {
+                            <p class="extras">追加で付くもの: @extras</p>
+                        }
+                    </div>
+                }
+            </section>
         }
     }
 </main>
@@ -71,6 +100,7 @@
     private string? loadError;
     private string? inputError;
     private ComboResult? result;
+    private List<Recommendation> recommendations = new();
     private bool calculated;
     private bool calculating;
 
@@ -97,13 +127,20 @@
         }
         calculated = false;
         result = null;
+        recommendations = new();
         inputError = null;
 
         // 0〜99に限ることで、探索の深さと状態数が抑えられる（大きすぎる数でスタックが溢れない）
-        if (menu!.Products.Any(p => p.Required is < 0 or > 99 || p.MaxSurplus is < 0 or > 99))
+        if (menu!.Products.Any(p => p.Required is < 0 or > 99))
         {
-            inputError = "必要数と余剰の上限には0〜99の数を入力してください。";
+            inputError = "必要数には0〜99の数を入力してください。";
             return;
+        }
+
+        // 最安は「頼んだものだけでちょうど」なので、余剰は0にする
+        foreach (var product in menu.Products)
+        {
+            product.MaxSurplus = 0;
         }
 
         // 計算は同期で重いことがあるので、先に「計算中...」を描画させてから始める
@@ -113,6 +150,7 @@
             StateHasChanged();
             await Task.Delay(1);
             result = CheapestComboFinder.FindCheapest(variants, menu.Products);
+            recommendations = SetRecommender.Recommend(menu.Options, menu.Products, result);
             calculated = true;
         }
         finally
@@ -137,5 +175,50 @@
             offset += slot.Count;
         }
         return $"（{string.Join(" / ", parts)}）";
+    }
+
+    // おすすめでは、同じものが続くときは「お好きなサイド ×4」のようにまとめる
+    private string DescribePicks(RecommendedItem item)
+    {
+        if (item.Picks.Count == 0)
+        {
+            return "";
+        }
+        var parts = new List<string>();
+        var offset = 0;
+        foreach (var slot in item.Option.Choices)
+        {
+            var names = item.Picks.Skip(offset).Take(slot.Count)
+                .Select(id => id is null ? $"お好きな{slot.Label}" : productNames.GetValueOrDefault(id, id));
+            var grouped = names
+                .GroupBy(name => name)
+                .Select(g => g.Count() == 1 ? g.Key : $"{g.Key} ×{g.Count()}");
+            parts.Add($"{slot.Label}: {string.Join(", ", grouped)}");
+            offset += slot.Count;
+        }
+        return $"（{string.Join(" / ", parts)}）";
+    }
+
+    private string DescribeDifference(Recommendation recommendation)
+    {
+        if (result is null)
+        {
+            return "";
+        }
+        var difference = recommendation.TotalPrice - result.TotalPrice;
+        return difference switch
+        {
+            > 0 => $"（最安より+{difference:N0}円）",
+            < 0 => $"（最安より{-difference:N0}円安い）",
+            _ => "（最安と同額）",
+        };
+    }
+
+    private string DescribeExtras(Recommendation recommendation)
+    {
+        var parts = recommendation.Surplus
+            .Select(kv => $"{productNames.GetValueOrDefault(kv.Key, kv.Key)} +{kv.Value}")
+            .Concat(recommendation.FreeChoices.Select(kv => $"お好きな{kv.Key} ×{kv.Value}"));
+        return string.Join(", ", parts);
     }
 }
