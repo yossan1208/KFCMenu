@@ -43,7 +43,7 @@ public static class SetRecommender
         foreach (var plan in rootPlans)
         {
             var bought = plan.ToSortedArray();
-            if (!bought.Any(j => candidates[j].IsSet) || !IsMinimal(bought, candidates, need))
+            if (!bought.Any(j => candidates[j].IsSet) || !IsMinimal(bought, candidates, requested))
             {
                 continue;
             }
@@ -79,33 +79,123 @@ public static class SetRecommender
         return prices;
     }
 
-    private static bool IsMinimal(int[] plan, List<RequestVariant> candidates, int[] need)
+    // 条件3（無駄がない）: どの購入選択肢を1つ取り除いても、残りの選べる枠の選び方をどう変えても、どれかの商品が必要数を下回る。
+    // 席の選び方は変えてよいので、買い方の中身ではなく購入選択肢ごとの個数だけで決まる
+    private static bool IsMinimal(int[] plan, List<RequestVariant> candidates, List<Product> requested)
     {
-        var totals = new int[need.Length];
+        var counts = new Dictionary<MenuOption, int>();
         foreach (var j in plan)
         {
-            for (var k = 0; k < need.Length; k++)
-            {
-                totals[k] += candidates[j].Amounts[k];
-            }
+            var option = candidates[j].Option;
+            counts[option] = counts.GetValueOrDefault(option) + 1;
         }
-        foreach (var j in plan.Distinct())
+        foreach (var option in counts.Keys.ToList())
         {
-            var stillCovered = true;
-            for (var k = 0; k < need.Length; k++)
-            {
-                if (totals[k] - candidates[j].Amounts[k] < need[k])
-                {
-                    stillCovered = false;
-                    break;
-                }
-            }
-            if (stillCovered)
+            counts[option]--;
+            var covered = CanCover(counts, requested);
+            counts[option]++;
+            if (covered)
             {
                 return false;
             }
         }
         return true;
+    }
+
+    // 選べる枠の各席を、枠の候補にある頼んだ商品のどれか（またはお好きなもの）に選び直して、全商品の必要数を満たせるか。
+    // includes で足りない分を席で埋める最大流（湧き出し → 枠 → 商品 → 吸い込み）で調べる。
+    // 同じ購入選択肢の同じ枠はまとめて1つの頂点にする: 容量は 個数 × 席数、重複不可の枠は1個につき各商品1席まで
+    private static bool CanCover(Dictionary<MenuOption, int> counts, List<Product> requested)
+    {
+        var deficit = new int[requested.Count];
+        var totalDeficit = 0;
+        for (var k = 0; k < requested.Count; k++)
+        {
+            var fixedAmount = 0;
+            foreach (var (option, count) in counts)
+            {
+                fixedAmount += count * option.Includes.GetValueOrDefault(requested[k].Id);
+            }
+            deficit[k] = Math.Max(0, requested[k].Required - fixedAmount);
+            totalDeficit += deficit[k];
+        }
+        if (totalDeficit == 0)
+        {
+            return true;
+        }
+
+        var slots = new List<(ChoiceSlot Slot, int Count)>();
+        foreach (var (option, count) in counts)
+        {
+            if (count > 0)
+            {
+                slots.AddRange(option.Choices.Select(slot => (slot, count)));
+            }
+        }
+
+        // 頂点: 0 = 湧き出し、1..slots = 枠、続いて商品、最後が吸い込み
+        var productBase = 1 + slots.Count;
+        var sink = productBase + requested.Count;
+        var capacity = new int[sink + 1, sink + 1];
+        for (var s = 0; s < slots.Count; s++)
+        {
+            var (slot, count) = slots[s];
+            capacity[0, 1 + s] = count * slot.Count;
+            for (var k = 0; k < requested.Count; k++)
+            {
+                if (deficit[k] > 0 && slot.From.Contains(requested[k].Id))
+                {
+                    capacity[1 + s, productBase + k] = count * (slot.AllowDuplicate ? slot.Count : 1);
+                }
+            }
+        }
+        for (var k = 0; k < requested.Count; k++)
+        {
+            capacity[productBase + k, sink] = deficit[k];
+        }
+        return MaxFlow(capacity, 0, sink) >= totalDeficit;
+    }
+
+    // 幅優先で増加路を探す最大流（Edmonds–Karp）。頂点は高々数十個
+    private static int MaxFlow(int[,] capacity, int source, int sink)
+    {
+        var n = capacity.GetLength(0);
+        var flow = 0;
+        var parent = new int[n];
+        while (true)
+        {
+            Array.Fill(parent, -1);
+            parent[source] = source;
+            var queue = new Queue<int>();
+            queue.Enqueue(source);
+            while (queue.Count > 0 && parent[sink] < 0)
+            {
+                var u = queue.Dequeue();
+                for (var v = 0; v < n; v++)
+                {
+                    if (parent[v] < 0 && capacity[u, v] > 0)
+                    {
+                        parent[v] = u;
+                        queue.Enqueue(v);
+                    }
+                }
+            }
+            if (parent[sink] < 0)
+            {
+                return flow;
+            }
+            var push = int.MaxValue;
+            for (var v = sink; v != source; v = parent[v])
+            {
+                push = Math.Min(push, capacity[parent[v], v]);
+            }
+            for (var v = sink; v != source; v = parent[v])
+            {
+                capacity[parent[v], v] -= push;
+                capacity[v, parent[v]] += push;
+            }
+            flow += push;
+        }
     }
 
     // 購入選択肢ごとの個数が同じなら同じ組み合わせとみなす
