@@ -73,7 +73,7 @@ Coreを分ける理由: 計算ロジックが画面（Blazor）に依存しな�
   - `id`: 商品ID（例: `chicken`, `potato_s`, `drink_s`）
   - `name`: 表示名
   - `required`: 必要数（画面の入力欄の初期値）
-  - `MaxSurplus`: 余剰の上限個数（画面の入力欄の初期値）
+  - `MaxSurplus`: 余剰の上限個数（計算ロジックの入力。2026-10-24以降、画面はこの値を使わず常に0で最安を求める）
 - `options`: 購入選択肢の一覧（30件）
   - `id`, `name`, `price`
   - `includes`: 必ず含まれる商品IDと個数（例: `{ "chicken": 4 }`）
