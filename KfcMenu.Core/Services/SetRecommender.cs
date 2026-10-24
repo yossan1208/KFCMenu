@@ -6,7 +6,8 @@ public static class SetRecommender
 {
     public const int MaxRecommendations = 3;
 
-    // 状態ごとに残す候補の数。小さいほど速いが、絞り込みで候補が多く落ちる注文では上位を見落としうる
+    // 状態ごとに残す候補の数（（単品の個数, 金額）順の上位と、金額順の上位のそれぞれ）。
+    // 小さいほど速いが、絞り込みで候補が多く落ちる注文では上位を見落としうる
     private const int PoolSize = 40;
 
     public static List<Recommendation> Recommend(
@@ -28,7 +29,14 @@ public static class SetRecommender
             .ToList();
         var need = requested.Select(p => p.Required).ToArray();
         var search = new Search(need, candidates, priceCap);
-        var rootPlans = search.Solve(UInt128.Zero);
+        var root = search.Solve(UInt128.Zero);
+
+        // 2つの上位を合わせ（同じ組み合わせは1つ）、（単品の個数, 金額）順に並べ直す。
+        // OrderBy は安定ソートなので、同順位は（単品の個数, 金額）順の上位にあった並びのまま
+        var union = new List<Plan>(root.BySingles);
+        var inUnion = root.BySingles.Select(p => p.Hash).ToHashSet();
+        union.AddRange(root.ByPrice.Where(p => inUnion.Add(p.Hash)));
+        var rootPlans = union.OrderBy(p => p.Singles).ThenBy(p => p.Price);
 
         var result = new List<Recommendation>();
         var seen = new HashSet<string>();
@@ -294,6 +302,14 @@ public static class SetRecommender
         }
     }
 
+    // 状態ごとに残す買い方: （単品の個数, 金額）順の上位 PoolSize 件と、金額順の上位 PoolSize 件。
+    // 前者だけだと、単品は少ないが高い買い方で埋まり、親で品物を足すと1.5倍上限を超える注文で、
+    // 上限内に収まる安い買い方がすでに切り捨てられている。後者がそれを残す
+    private sealed record Pools(List<Plan> BySingles, List<Plan> ByPrice)
+    {
+        public static readonly Pools Done = new([Plan.Empty], [Plan.Empty]);
+    }
+
     private sealed class Search
     {
         private readonly int[] need;
@@ -310,10 +326,11 @@ public static class SetRecommender
         private readonly int[][] productsOf;
         private readonly int[][] countsOf;
 
-        // 状態のキー = Σ state[k] × radix[k]、radix[k] = Π_{i<k} (need[i] + 1)。
-        // 必要数は0〜99、商品は最大16種類なので、最大 100^16 − 1 < 2^107 で UInt128 に収まり、状態ごとに一意
+        // 状態のキー = Σ state[k] × radix[k]、radix[k] = Π_{i<k} (need[i] + 1)。キーの最大は Π (need[k] + 1) − 1 で、状態ごとに一意。
+        // UInt128 に収まるかは頼んだ商品の数で決まる: 必要数がすべて99でも19種類まで（100^19 < 2^128）。
+        // 今のメニューは16種類。積は checked で計算し、収まらないときは黙って衝突せず OverflowException にする
         private readonly UInt128[] radix;
-        private readonly Dictionary<UInt128, List<Plan>> memo = new();
+        private readonly Dictionary<UInt128, Pools> memo = new();
 
         public Search(int[] need, List<RequestVariant> candidates, int priceCap)
         {
@@ -345,7 +362,7 @@ public static class SetRecommender
             for (var k = 0; k < need.Length; k++)
             {
                 radix[k] = radixProduct;
-                radixProduct *= (UInt128)(need[k] + 1);
+                radixProduct = checked(radixProduct * (UInt128)(need[k] + 1));
             }
 
             // 候補ごとの乱数（SplitMix64）。多重集合のハッシュ = 買った候補の乱数の和（64bitなので衝突は事実上起きない）
@@ -361,8 +378,8 @@ public static class SetRecommender
             }
         }
 
-        // key は今の state のキー。そこから必要数を満たすまでの買い方を上位 PoolSize 件返す
-        public List<Plan> Solve(UInt128 key)
+        // key は今の state のキー。そこから必要数を満たすまでの買い方の上位（Pools）を返す
+        public Pools Solve(UInt128 key)
         {
             if (memo.TryGetValue(key, out var cached))
             {
@@ -380,15 +397,14 @@ public static class SetRecommender
             }
             if (lacking < 0)
             {
-                var done = new List<Plan> { Plan.Empty };
-                memo[key] = done;
-                return done;
+                memo[key] = Pools.Done;
+                return Pools.Done;
             }
 
             // 足りない商品を含む候補のどれかは必ず買うので、それだけを試す。
-            // 候補 j ごとに「j + 次の状態からの買い方」の列ができ、各列は（単品の個数, 金額）順に並んでいる。
-            // それらを先頭から突き合わせて（k-way merge）、上位 PoolSize 件だけ取り出す
-            var sources = new List<(int Variant, List<Plan> Plans)>();
+            // 候補 j ごとに「j + 次の状態からの買い方」の列ができる。次の状態の2つの上位はそれぞれの順に並んでいるので、
+            // 同じ順どうしを先頭から突き合わせて（k-way merge）、それぞれ上位 PoolSize 件だけ取り出す
+            var sources = new List<(int Variant, Pools Pools)>();
             var added = new int[need.Length];
             foreach (var j in variantsWith[lacking])
             {
@@ -402,20 +418,28 @@ public static class SetRecommender
                     state[k] += added[i];
                     nextKey += (UInt128)added[i] * radix[k];
                 }
-                var plans = Solve(nextKey);
+                var pools = Solve(nextKey);
                 for (var i = 0; i < ids.Length; i++)
                 {
                     state[ids[i]] -= added[i];
                 }
-                sources.Add((j, plans));
+                sources.Add((j, pools));
             }
 
-            var queue = new PriorityQueue<(int Source, int Position), (int Singles, int Price, int Source)>();
+            var result = new Pools(Merge(sources, byPrice: false), Merge(sources, byPrice: true));
+            memo[key] = result;
+            return result;
+        }
+
+        // byPrice が false なら（単品の個数, 金額）順、true なら（金額, 単品の個数）順。同順位は足す候補の順（決定的）
+        private List<Plan> Merge(List<(int Variant, Pools Pools)> sources, bool byPrice)
+        {
+            var queue = new PriorityQueue<(int Source, int Position), (int First, int Second, int Source)>();
             for (var s = 0; s < sources.Count; s++)
             {
-                if (sources[s].Plans.Count > 0)
+                if (List(sources[s], byPrice).Count > 0)
                 {
-                    queue.Enqueue((s, 0), Priority(sources[s], s, 0));
+                    queue.Enqueue((s, 0), Priority(sources[s], byPrice, s, 0));
                 }
             }
 
@@ -424,31 +448,42 @@ public static class SetRecommender
             while (top.Count < PoolSize && queue.TryDequeue(out var at, out var priority))
             {
                 var source = sources[at.Source];
-                if (at.Position + 1 < source.Plans.Count)
+                var plans = List(source, byPrice);
+                var rest = plans[at.Position];
+                var variant = candidates[source.Variant];
+                var price = rest.Price + variant.Price;
+                if (price > priceCap && byPrice)
                 {
-                    queue.Enqueue((at.Source, at.Position + 1), Priority(source, at.Source, at.Position + 1));
+                    // 金額順なので、残りもすべて上限を超える
+                    break;
                 }
-                if (priority.Price > priceCap)
+                if (at.Position + 1 < plans.Count)
+                {
+                    queue.Enqueue((at.Source, at.Position + 1), Priority(source, byPrice, at.Source, at.Position + 1));
+                }
+                if (price > priceCap)
                 {
                     continue;
                 }
-                var rest = source.Plans[at.Position];
                 var hash = rest.Hash + hashOf[source.Variant];
                 if (seen.Add(hash))
                 {
-                    top.Add(new Plan(priority.Singles, priority.Price, hash, source.Variant, rest));
+                    top.Add(new Plan(rest.Singles + (variant.IsSingle ? 1 : 0), price, hash, source.Variant, rest));
                 }
             }
-
-            memo[key] = top;
             return top;
         }
 
-        private (int Singles, int Price, int Source) Priority((int Variant, List<Plan> Plans) source, int index, int position)
+        private static List<Plan> List((int Variant, Pools Pools) source, bool byPrice) =>
+            byPrice ? source.Pools.ByPrice : source.Pools.BySingles;
+
+        private (int First, int Second, int Source) Priority((int Variant, Pools Pools) source, bool byPrice, int index, int position)
         {
             var variant = candidates[source.Variant];
-            var rest = source.Plans[position];
-            return (rest.Singles + (variant.IsSingle ? 1 : 0), rest.Price + variant.Price, index);
+            var rest = List(source, byPrice)[position];
+            var singles = rest.Singles + (variant.IsSingle ? 1 : 0);
+            var price = rest.Price + variant.Price;
+            return byPrice ? (price, singles, index) : (singles, price, index);
         }
     }
 }
