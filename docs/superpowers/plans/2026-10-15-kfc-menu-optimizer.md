@@ -1031,6 +1031,8 @@ cd <一時ディレクトリ>/site && python3 -m http.server 8765
 
 **開始前に必ずユーザーに確認すること:** gitリポジトリを作ってよいか、GitHubのユーザー名、リポジトリ名（例: `kfc-menu`）、公開リポジトリでよいか、`_archive/` を含めるか。
 
+**リポジトリ名の注意:** リポジトリ名は `kfc-menu` のようなプロジェクト用の名前にする。`<ユーザー名>.github.io` という名前にすると、サイトがルート（`/`）で公開されて `<base href>` を `/<リポジトリ名>/` に書き換える前提が崩れ、画面が真っ白になる。
+
 **Files:**
 - Create: `.gitignore`
 - Create: `.github/workflows/deploy.yml`

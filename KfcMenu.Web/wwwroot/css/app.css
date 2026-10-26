@@ -87,3 +87,109 @@ code {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif;
+    background: #fff;
+    color: #222;
+}
+
+.app {
+    max-width: 32rem;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+.app h1 {
+    font-size: 1.4rem;
+    margin: 0 0 1rem;
+}
+
+.app h1:focus {
+    outline: none;
+}
+
+.product-row {
+    display: grid;
+    grid-template-columns: 1fr 4.5rem;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.product-row.header {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.product-row input {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 1rem;
+    padding: 0.3rem;
+}
+
+.calc {
+    display: block;
+    width: 100%;
+    margin: 1rem 0;
+    padding: 0.8rem;
+    font-size: 1.1rem;
+    border: none;
+    border-radius: 0.5rem;
+    background: #c8102e;
+    color: #fff;
+}
+
+.calc:disabled {
+    opacity: 0.6;
+}
+
+.result {
+    padding-left: 1.2rem;
+}
+
+.total {
+    font-size: 1.3rem;
+    font-weight: bold;
+}
+
+.error {
+    color: #c8102e;
+}
+
+.app h2 {
+    font-size: 1.1rem;
+    margin: 1.5rem 0 0.5rem;
+}
+
+.recommendation {
+    border: 1px solid #ddd;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.8rem;
+    margin-bottom: 0.8rem;
+}
+
+.recommendation .total {
+    margin: 0.3rem 0;
+}
+
+.diff {
+    font-size: 0.9rem;
+    font-weight: normal;
+    color: #666;
+}
+
+.savings {
+    margin: 0.2rem 0;
+    color: #c8102e;
+    font-weight: bold;
+}
+
+.extras {
+    margin: 0.2rem 0;
+    font-size: 0.9rem;
+    color: #444;
+}
