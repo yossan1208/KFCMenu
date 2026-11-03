@@ -34,6 +34,15 @@
 
         <button class="calc" @onclick="Calculate" disabled="@calculating">計算</button>
 
+        <div class="service-time" role="group" aria-label="時間帯">
+            <button type="button" class="@(serviceTime == ServiceTime.Lunch ? "selected" : "")"
+                    aria-pressed="@(serviceTime == ServiceTime.Lunch ? "true" : "false")"
+                    disabled="@calculating" @onclick="() => SelectServiceTime(ServiceTime.Lunch)">ランチ<span class="hours">10:00〜15:00</span></button>
+            <button type="button" class="@(serviceTime == ServiceTime.Regular ? "selected" : "")"
+                    aria-pressed="@(serviceTime == ServiceTime.Regular ? "true" : "false")"
+                    disabled="@calculating" @onclick="() => SelectServiceTime(ServiceTime.Regular)">通常</button>
+        </div>
+
         @if (calculating)
         {
             <p class="calculating">計算中...</p>
@@ -95,6 +104,8 @@
 
 @code {
     private MenuData? menu;
+    private ServiceTime serviceTime;
+    private List<MenuOption> options = new();
     private List<Variant> variants = new();
     private Dictionary<string, string> productNames = new();
     private string? loadError;
@@ -110,13 +121,42 @@
         {
             var json = await Http.GetStringAsync("data/menu.json");
             menu = MenuParser.Parse(json);
-            variants = VariantExpander.Expand(menu.Options);
             productNames = menu.Products.ToDictionary(p => p.Id, p => p.Name);
+            // 開いたときの時間帯は、スマホ（ブラウザ）の現在時刻で決める
+            serviceTime = MenuTime.At(TimeOnly.FromDateTime(DateTime.Now));
+            ApplyServiceTime();
         }
         catch (Exception ex)
         {
             loadError = ex.Message;
         }
+    }
+
+    // 選んだ時間帯で注文できる購入選択肢だけで計算する
+    private void ApplyServiceTime()
+    {
+        options = MenuTime.AvailableAt(menu!.Options, serviceTime);
+        variants = VariantExpander.Expand(options);
+    }
+
+    // 時間帯を切り替えたら、前の時間帯で出した結果は消す（必要数の入力は残す）
+    private void SelectServiceTime(ServiceTime time)
+    {
+        if (calculating || time == serviceTime)
+        {
+            return;
+        }
+        serviceTime = time;
+        ApplyServiceTime();
+        ClearResults();
+    }
+
+    private void ClearResults()
+    {
+        calculated = false;
+        result = null;
+        recommendations = new();
+        inputError = null;
     }
 
     private async Task Calculate()
@@ -125,10 +165,7 @@
         {
             return;
         }
-        calculated = false;
-        result = null;
-        recommendations = new();
-        inputError = null;
+        ClearResults();
 
         // 0〜99に限ることで、探索の深さと状態数が抑えられる（大きすぎる数でスタックが溢れない）
         if (menu!.Products.Any(p => p.Required is < 0 or > 99))
@@ -150,7 +187,7 @@
             StateHasChanged();
             await Task.Delay(1);
             result = CheapestComboFinder.FindCheapest(variants, menu.Products);
-            recommendations = SetRecommender.Recommend(menu.Options, menu.Products, result);
+            recommendations = SetRecommender.Recommend(options, menu.Products, result);
             calculated = true;
         }
         finally

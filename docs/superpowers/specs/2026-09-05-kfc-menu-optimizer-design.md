@@ -140,6 +140,7 @@ Web側が `HttpClient.GetStringAsync("data/menu.json")` で文字列を取得し
 - 最安の下に「セットでおすすめ」を表示する（詳細は docs/superpowers/specs/2026-10-24-set-recommendation-design.md）
 - 必要数の入力は0〜99に限る（`min="0" max="99"`）。範囲外のときは計算せず、「必要数には0〜99の数を入力してください。」と表示する
 - スマホで見やすいように、1列の縦並びにする
+- 2026-10-30（ver2.0）から、計算ボタンの下にランチ／通常の切り替えがある（詳細は docs/superpowers/specs/2026-10-30-lunch-menu-v2-design.md）
 
 ## エラー処理
 
