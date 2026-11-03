@@ -54,6 +54,41 @@ public class MenuParserTests
     }
 
     [Fact]
+    public void Parse_ReadsAvailability()
+    {
+        var json = """
+            {
+                "products": [ { "id": "a", "name": "A" } ],
+                "options": [
+                    { "id": "any", "name": "いつでも", "price": 100, "includes": { "a": 1 } },
+                    { "id": "lunch", "name": "ランチ", "price": 90, "availability": "lunch", "includes": { "a": 1 } },
+                    { "id": "regular", "name": "通常", "price": 110, "availability": "regular", "includes": { "a": 1 } }
+                ]
+            }
+            """;
+
+        var menu = MenuParser.Parse(json);
+
+        Assert.Equal([null, "lunch", "regular"], menu.Options.Select(o => o.Availability));
+    }
+
+    [Fact]
+    public void Parse_UnknownAvailability_Throws()
+    {
+        var json = """
+            {
+                "products": [ { "id": "a", "name": "A" } ],
+                "options": [ { "id": "x", "name": "書き間違い", "price": 100, "availability": "lunchtime", "includes": { "a": 1 } } ]
+            }
+            """;
+
+        var error = Assert.Throws<InvalidOperationException>(() => MenuParser.Parse(json));
+
+        Assert.Contains("書き間違い", error.Message);
+        Assert.Contains("lunchtime", error.Message);
+    }
+
+    [Fact]
     public void Parse_NullJson_Throws()
     {
         Assert.Throws<InvalidOperationException>(() => MenuParser.Parse("null"));
