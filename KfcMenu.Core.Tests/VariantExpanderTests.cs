@@ -6,16 +6,29 @@ namespace KfcMenu.Core.Tests;
 public class VariantExpanderTests
 {
     [Fact]
-    public void Expand_RealMenu_Counts()
+    public void Expand_RealLunchMenu_Counts()
     {
-        var variants = VariantExpander.Expand(TestMenu.Load().Options);
+        var variants = VariantExpander.Expand(TestMenu.Load(ServiceTime.Lunch).Options);
 
         Assert.Equal(174, variants.Count);
-        Assert.Equal(15, variants.Count(v => v.Option.Name == "4パック"));
-        Assert.Equal(35, variants.Count(v => v.Option.Name == "6パック"));
-        Assert.Equal(70, variants.Count(v => v.Option.Name == "8パック"));
-        Assert.Equal(4, variants.Count(v => v.Option.Name == "セット"));
-        Assert.Equal(1, variants.Count(v => v.Option.Name == "単"));
+        Assert.Equal(15, variants.Count(v => v.Option.Name == "4ピースパック"));
+        Assert.Equal(35, variants.Count(v => v.Option.Name == "6ピースパック"));
+        Assert.Equal(70, variants.Count(v => v.Option.Name == "8ピースパック"));
+        Assert.Equal(4, variants.Count(v => v.Option.Name == "バーガーセット"));
+        Assert.Equal(1, variants.Count(v => v.Option.Name == "バーガーコンビ"));
+        Assert.Equal(1, variants.Count(v => v.Option.Name == "単品チキン"));
+    }
+
+    [Fact]
+    public void Expand_RealRegularMenu_Counts()
+    {
+        var variants = VariantExpander.Expand(TestMenu.Load(ServiceTime.Regular).Options);
+
+        // ランチより、バーガーコンビ（1通り）とチキン&ビスケットセット（ドリンク4通り）の分だけ少ない
+        Assert.Equal(169, variants.Count);
+        Assert.Equal(4, variants.Count(v => v.Option.Name == "バーガーセット"));
+        Assert.Equal(0, variants.Count(v => v.Option.Name == "バーガーコンビ"));
+        Assert.Equal(0, variants.Count(v => v.Option.Name == "チキン&ビスケットセット"));
     }
 
     [Fact]

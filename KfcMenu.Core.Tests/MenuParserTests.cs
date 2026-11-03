@@ -47,10 +47,16 @@ public class MenuParserTests
         var menu = TestMenu.Load();
 
         Assert.Equal(16, menu.Products.Count);
-        Assert.Equal(30, menu.Options.Count);
+        Assert.Equal(36, menu.Options.Count);
         Assert.Equal("チキン", menu.Products[0].Name);
-        Assert.Equal("4パック", menu.Options[0].Name);
+        Assert.Equal("骨なしチキン", menu.Products.Single(p => p.Id == "boneless").Name);
+        Assert.Equal("ドリンク S", menu.Products.Single(p => p.Id == "drink_s").Name);
+        Assert.Equal("4ピースパック", menu.Options[0].Name);
         Assert.Equal(1590, menu.Options[0].Price);
+        Assert.Equal(8, menu.Options.Count(o => o.Availability == "lunch"));
+        Assert.Equal(6, menu.Options.Count(o => o.Availability == "regular"));
+        Assert.Equal("ドリンク S", menu.Options.Single(o => o.Id == "drink_s_single").Name);
+        Assert.Equal("ホットドリンク", menu.Options.Single(o => o.Id == "drink_hot_single").Name);
     }
 
     [Fact]

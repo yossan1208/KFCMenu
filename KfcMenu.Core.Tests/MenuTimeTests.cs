@@ -34,4 +34,23 @@ public class MenuTimeTests
         Assert.Equal(["any", "lunch"], MenuTime.AvailableAt([any, lunch, regular], ServiceTime.Lunch).Select(o => o.Id));
         Assert.Equal(["any", "regular"], MenuTime.AvailableAt([any, lunch, regular], ServiceTime.Regular).Select(o => o.Id));
     }
+
+    [Fact]
+    public void AvailableAt_RealMenu()
+    {
+        var lunch = TestMenu.Load(ServiceTime.Lunch).Options;
+        var regular = TestMenu.Load(ServiceTime.Regular).Options;
+
+        Assert.Equal(30, lunch.Count);
+        Assert.Equal(28, regular.Count);
+
+        Assert.Contains(lunch, o => o.Name == "バーガーコンビ");
+        Assert.Contains(lunch, o => o.Name == "チキン&ビスケットセット");
+        Assert.DoesNotContain(regular, o => o.Name == "バーガーコンビ");
+        Assert.DoesNotContain(regular, o => o.Name == "チキン&ビスケットセット");
+
+        Assert.Equal(790, lunch.Single(o => o.Name == "バーガーセット").Price);
+        Assert.Equal(890, regular.Single(o => o.Name == "バーガーセット").Price);
+        Assert.Equal(590, regular.Single(o => o.Name == "キッズチキン").Price);
+    }
 }

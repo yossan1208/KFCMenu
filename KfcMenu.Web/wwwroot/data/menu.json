@@ -15,11 +15,13 @@
         // from: 候補の商品ID
         // allowDuplicate: 重複可否
         // label: 結果表示用（処理には使用しない）
+    // availability: 注文できる時間帯。省略可
+        // "lunch": ランチ時間（10:00〜15:00）だけ / "regular": ランチ時間外だけ / 省略: いつでも
 
 {
     "products": [
         { "id": "chicken",    "name": "チキン",         "required": 0, "MaxSurplus": 0 },
-        { "id": "boneless",   "name": "骨なし",         "required": 0, "MaxSurplus": 0 },
+        { "id": "boneless",   "name": "骨なしチキン",   "required": 0, "MaxSurplus": 0 },
         { "id": "burger",     "name": "バーガー",       "required": 0, "MaxSurplus": 0 },
         { "id": "twister",    "name": "ツイスター",     "required": 0, "MaxSurplus": 0 },
         { "id": "potato_s",   "name": "ポテトS",        "required": 0, "MaxSurplus": 0 },
@@ -30,94 +32,137 @@
         { "id": "biscuit",    "name": "ビスケット",     "required": 0, "MaxSurplus": 0 },
         { "id": "nugget",     "name": "ナゲット",       "required": 0, "MaxSurplus": 0 },
         { "id": "coleslaw",   "name": "コールスロー",   "required": 0, "MaxSurplus": 0 },
-        { "id": "drink_s",    "name": "ドリンクS",      "required": 0, "MaxSurplus": 0 },
-        { "id": "drink_m",    "name": "ドリンクM",      "required": 0, "MaxSurplus": 0 },
-        { "id": "drink_l",    "name": "ドリンクL",      "required": 0, "MaxSurplus": 0 },
+        { "id": "drink_s",    "name": "ドリンク S",     "required": 0, "MaxSurplus": 0 },
+        { "id": "drink_m",    "name": "ドリンク M",     "required": 0, "MaxSurplus": 0 },
+        { "id": "drink_l",    "name": "ドリンク L",     "required": 0, "MaxSurplus": 0 },
         { "id": "drink_hot",  "name": "ホットドリンク", "required": 0, "MaxSurplus": 0 }
     ],
 
     "options": [
         {
-            "id": "pack4", "name": "4パック", "price": 1590,
+            "id": "pack4", "name": "4ピースパック", "price": 1590,
             "includes": { "chicken": 4 },
             "choices": [
                 { "count": 2, "from": ["potato_s", "crispy", "chocopie", "biscuit", "coleslaw"], "allowDuplicate": true, "label": "サイド" }
             ]
         },
         {
-            "id": "pack6", "name": "6パック", "price": 2390,
+            "id": "pack6", "name": "6ピースパック", "price": 2390,
             "includes": { "chicken": 6 },
             "choices": [
                 { "count": 3, "from": ["potato_s", "crispy", "chocopie", "biscuit", "coleslaw"], "allowDuplicate": true, "label": "サイド" }
             ]
         },
         {
-            "id": "pack8", "name": "8パック", "price": 2990,
+            "id": "pack8", "name": "8ピースパック", "price": 2990,
             "includes": { "chicken": 8 },
             "choices": [
                 { "count": 4, "from": ["potato_s", "crispy", "chocopie", "biscuit", "coleslaw"], "allowDuplicate": true, "label": "サイド" }
             ]
         },
-        { "id": "pack10",          "name": "10パック", "price": 3300, "includes": { "chicken": 10 } },
-        { "id": "chicken_single",  "name": "単",       "price": 330,  "includes": { "chicken": 1 } },
-        { "id": "boneless_single", "name": "骨なし",   "price": 330,  "includes": { "boneless": 1 } },
+        { "id": "pack10",          "name": "10ピースパック", "price": 3300, "includes": { "chicken": 10 } },
+        { "id": "chicken_single",  "name": "単品チキン",     "price": 330,  "includes": { "chicken": 1 } },
+        { "id": "boneless_single", "name": "骨なしチキン",   "price": 330,  "includes": { "boneless": 1 } },
 
-        { "id": "combi", "name": "コンビ", "price": 550, "includes": { "burger": 1, "potato_s": 1 } },
+        { "id": "burger_combi_lunch", "name": "バーガーコンビ", "price": 590, "availability": "lunch", "includes": { "burger": 1, "potato_s": 1 } },
         {
-            "id": "set", "name": "セット", "price": 690,
+            "id": "burger_set_lunch", "name": "バーガーセット", "price": 790, "availability": "lunch",
             "includes": { "burger": 1, "potato_s": 1 },
             "choices": [
                 { "count": 1, "from": ["drink_s", "drink_m", "drink_l", "drink_hot"], "allowDuplicate": false, "label": "ドリンク" }
             ]
         },
         {
-            "id": "twister_set", "name": "ツイスターセット", "price": 650,
+            "id": "twister_set_lunch", "name": "ツイスターセット", "price": 690, "availability": "lunch",
             "includes": { "twister": 1, "potato_s": 1 },
             "choices": [
                 { "count": 1, "from": ["drink_s", "drink_m", "drink_l", "drink_hot"], "allowDuplicate": false, "label": "ドリンク" }
             ]
         },
         {
-            "id": "chickibis", "name": "チキビス", "price": 550,
+            "id": "chicken_biscuit_set_lunch", "name": "チキン&ビスケットセット", "price": 590, "availability": "lunch",
             "includes": { "chicken": 1, "potato_s": 1, "biscuit": 1 },
             "choices": [
                 { "count": 1, "from": ["drink_s", "drink_m", "drink_l", "drink_hot"], "allowDuplicate": false, "label": "ドリンク" }
             ]
         },
         {
-            "id": "set2", "name": "2セット", "price": 890,
+            "id": "chicken2_set_lunch", "name": "チキン2ピースセット", "price": 940, "availability": "lunch",
             "includes": { "chicken": 2, "potato_s": 1 },
             "choices": [
                 { "count": 1, "from": ["drink_s", "drink_m", "drink_l", "drink_hot"], "allowDuplicate": false, "label": "ドリンク" }
             ]
         },
         {
-            "id": "yokubari_burger", "name": "欲張りバーガー", "price": 990,
+            "id": "yokubari_burger_set_lunch", "name": "欲張りバーガーセット", "price": 1090, "availability": "lunch",
             "includes": { "chicken": 1, "potato_s": 1, "burger": 1 },
             "choices": [
                 { "count": 1, "from": ["drink_s", "drink_m", "drink_l", "drink_hot"], "allowDuplicate": false, "label": "ドリンク" }
             ]
         },
         {
-            "id": "yokubari_twister", "name": "欲張りツイスター", "price": 950,
+            "id": "yokubari_twister_set_lunch", "name": "欲張りツイスターセット", "price": 990, "availability": "lunch",
             "includes": { "chicken": 1, "potato_s": 1, "twister": 1 },
             "choices": [
                 { "count": 1, "from": ["drink_s", "drink_m", "drink_l", "drink_hot"], "allowDuplicate": false, "label": "ドリンク" }
             ]
         },
         {
-            "id": "set3", "name": "3セット", "price": 1190,
+            "id": "chicken3_set_lunch", "name": "チキン3ピースセット", "price": 1240, "availability": "lunch",
             "includes": { "chicken": 3, "potato_s": 1 },
             "choices": [
                 { "count": 1, "from": ["drink_s", "drink_m", "drink_l", "drink_hot"], "allowDuplicate": false, "label": "ドリンク" }
             ]
         },
 
-        { "id": "burger_single",  "name": "バーガー",   "price": 440, "includes": { "burger": 1 } },
-        { "id": "twister_single", "name": "ツイスター", "price": 380, "includes": { "twister": 1 } },
+        {
+            "id": "burger_set_regular", "name": "バーガーセット", "price": 890, "availability": "regular",
+            "includes": { "burger": 1, "potato_s": 1 },
+            "choices": [
+                { "count": 1, "from": ["drink_s", "drink_m", "drink_l", "drink_hot"], "allowDuplicate": false, "label": "ドリンク" }
+            ]
+        },
+        {
+            "id": "twister_set_regular", "name": "ツイスターセット", "price": 790, "availability": "regular",
+            "includes": { "twister": 1, "potato_s": 1 },
+            "choices": [
+                { "count": 1, "from": ["drink_s", "drink_m", "drink_l", "drink_hot"], "allowDuplicate": false, "label": "ドリンク" }
+            ]
+        },
+        {
+            "id": "chicken2_set_regular", "name": "チキン2ピースセット", "price": 1020, "availability": "regular",
+            "includes": { "chicken": 2, "potato_s": 1 },
+            "choices": [
+                { "count": 1, "from": ["drink_s", "drink_m", "drink_l", "drink_hot"], "allowDuplicate": false, "label": "ドリンク" }
+            ]
+        },
+        {
+            "id": "yokubari_burger_set_regular", "name": "欲張りバーガーセット", "price": 1190, "availability": "regular",
+            "includes": { "chicken": 1, "potato_s": 1, "burger": 1 },
+            "choices": [
+                { "count": 1, "from": ["drink_s", "drink_m", "drink_l", "drink_hot"], "allowDuplicate": false, "label": "ドリンク" }
+            ]
+        },
+        {
+            "id": "yokubari_twister_set_regular", "name": "欲張りツイスターセット", "price": 1090, "availability": "regular",
+            "includes": { "chicken": 1, "potato_s": 1, "twister": 1 },
+            "choices": [
+                { "count": 1, "from": ["drink_s", "drink_m", "drink_l", "drink_hot"], "allowDuplicate": false, "label": "ドリンク" }
+            ]
+        },
+        {
+            "id": "chicken3_set_regular", "name": "チキン3ピースセット", "price": 1320, "availability": "regular",
+            "includes": { "chicken": 3, "potato_s": 1 },
+            "choices": [
+                { "count": 1, "from": ["drink_s", "drink_m", "drink_l", "drink_hot"], "allowDuplicate": false, "label": "ドリンク" }
+            ]
+        },
 
-        { "id": "potato_s_single",   "name": "ポテs",        "price": 290, "includes": { "potato_s": 1 } },
-        { "id": "potato_l_single",   "name": "ポテL",        "price": 490, "includes": { "potato_l": 1 } },
+        { "id": "burger_single",  "name": "バーガー",   "price": 490, "includes": { "burger": 1 } },
+        { "id": "twister_single", "name": "ツイスター", "price": 390, "includes": { "twister": 1 } },
+
+        { "id": "potato_s_single",   "name": "ポテトS",      "price": 290, "includes": { "potato_s": 1 } },
+        { "id": "potato_l_single",   "name": "ポテトL",      "price": 490, "includes": { "potato_l": 1 } },
         { "id": "potato_box_single", "name": "ポテトBOX",    "price": 990, "includes": { "potato_box": 1 } },
         { "id": "crispy_single",     "name": "クリスピー",   "price": 290, "includes": { "crispy": 1 } },
         { "id": "chocopie_single",   "name": "チョコパイ",   "price": 290, "includes": { "chocopie": 1 } },
@@ -125,10 +170,10 @@
         { "id": "nugget_single",     "name": "ナゲット",     "price": 480, "includes": { "nugget": 1 } },
         { "id": "coleslaw_single",   "name": "コールスロー", "price": 290, "includes": { "coleslaw": 1 } },
 
-        { "id": "drink_s_single",   "name": "S",      "price": 270, "includes": { "drink_s": 1 } },
-        { "id": "drink_m_single",   "name": "M",      "price": 290, "includes": { "drink_m": 1 } },
-        { "id": "drink_l_single",   "name": "L",      "price": 340, "includes": { "drink_l": 1 } },
-        { "id": "drink_hot_single", "name": "ホット", "price": 290, "includes": { "drink_hot": 1 } },
+        { "id": "drink_s_single",   "name": "ドリンク S",     "price": 270, "includes": { "drink_s": 1 } },
+        { "id": "drink_m_single",   "name": "ドリンク M",     "price": 290, "includes": { "drink_m": 1 } },
+        { "id": "drink_l_single",   "name": "ドリンク L",     "price": 340, "includes": { "drink_l": 1 } },
+        { "id": "drink_hot_single", "name": "ホットドリンク", "price": 290, "includes": { "drink_hot": 1 } },
 
         {
             "id": "kids_nugget", "name": "キッズナゲット", "price": 590,

@@ -5,16 +5,14 @@ namespace KfcMenu.Core.Tests;
 
 public class CheapestComboFinderTests
 {
-    private readonly MenuData menu = TestMenu.Load();
-    private readonly List<Variant> variants;
-
-    public CheapestComboFinderTests()
-    {
-        variants = VariantExpander.Expand(menu.Options);
-    }
+    private readonly MenuData lunch = TestMenu.Load(ServiceTime.Lunch);
+    private readonly MenuData regular = TestMenu.Load(ServiceTime.Regular);
 
     private ComboResult? Find(params (string Id, int Required, int MaxSurplus)[] conditions) =>
-        CheapestComboFinder.FindCheapest(variants, TestMenu.WithConditions(menu, conditions));
+        Find(lunch, conditions);
+
+    private static ComboResult? Find(MenuData menu, params (string Id, int Required, int MaxSurplus)[] conditions) =>
+        CheapestComboFinder.FindCheapest(VariantExpander.Expand(menu.Options), TestMenu.WithConditions(menu, conditions));
 
     private static List<string> Describe(ComboResult result) =>
         result.Items
@@ -29,17 +27,28 @@ public class CheapestComboFinderTests
 
         Assert.NotNull(result);
         Assert.Equal(2640, result.TotalPrice);
-        Assert.Equal(["単x8[]"], Describe(result));
+        Assert.Equal(["単品チキンx8[]"], Describe(result));
     }
 
     [Fact]
     public void ExactSetMatch()
     {
+        var result = Find(("burger", 1, 0), ("potato_s", 1, 0), ("drink_s", 1, 0));
+
+        Assert.NotNull(result);
+        Assert.Equal(790, result.TotalPrice);
+        Assert.Equal(["バーガーセットx1[drink_s]"], Describe(result));
+    }
+
+    [Fact]
+    public void KidsSetPlusSingleBeatsTheTwoPieceSet()
+    {
+        // チキン2ピースセット（ランチ940円）より、キッズチキン + 単品チキン（920円）が安い
         var result = Find(("chicken", 2, 0), ("potato_s", 1, 0), ("drink_s", 1, 0));
 
         Assert.NotNull(result);
-        Assert.Equal(890, result.TotalPrice);
-        Assert.Equal(["2セットx1[drink_s]"], Describe(result));
+        Assert.Equal(920, result.TotalPrice);
+        Assert.Equal(["キッズチキンx1[drink_s]", "単品チキンx1[]"], Describe(result));
     }
 
     [Fact]
@@ -49,7 +58,7 @@ public class CheapestComboFinderTests
 
         Assert.NotNull(result);
         Assert.Equal(1590, result.TotalPrice);
-        Assert.Equal(["4パックx1[crispy,crispy]"], Describe(result));
+        Assert.Equal(["4ピースパックx1[crispy,crispy]"], Describe(result));
     }
 
     [Fact]
@@ -59,7 +68,7 @@ public class CheapestComboFinderTests
 
         Assert.NotNull(result);
         Assert.Equal(2990, result.TotalPrice);
-        Assert.Equal(["8パックx1[potato_s,potato_s,potato_s,potato_s]"], Describe(result));
+        Assert.Equal(["8ピースパックx1[potato_s,potato_s,potato_s,potato_s]"], Describe(result));
     }
 
     [Fact]
@@ -69,7 +78,7 @@ public class CheapestComboFinderTests
 
         Assert.NotNull(result);
         Assert.Equal(910, result.TotalPrice);
-        Assert.Equal(["ビスケットx1[]", "ポテsx1[]", "単x1[]"], Describe(result));
+        Assert.Equal(["ビスケットx1[]", "ポテトSx1[]", "単品チキンx1[]"], Describe(result));
     }
 
     [Fact]
@@ -78,8 +87,8 @@ public class CheapestComboFinderTests
         var result = Find(("chicken", 1, 0), ("potato_s", 1, 0), ("biscuit", 1, 0), ("drink_s", 0, 1));
 
         Assert.NotNull(result);
-        Assert.Equal(550, result.TotalPrice);
-        Assert.Equal(["チキビスx1[drink_s]"], Describe(result));
+        Assert.Equal(590, result.TotalPrice);
+        Assert.Equal(["チキン&ビスケットセットx1[drink_s]"], Describe(result));
     }
 
     [Fact]
@@ -88,8 +97,8 @@ public class CheapestComboFinderTests
         var result = Find(("chicken", 8, 0), ("potato_s", 2, 0), ("drink_s", 2, 0), ("burger", 1, 0), ("biscuit", 2, 0));
 
         Assert.NotNull(result);
-        Assert.Equal(3520, result.TotalPrice);
-        Assert.Equal(["チキビスx2[drink_s]", "バーガーx1[]", "単x6[]"], Describe(result));
+        Assert.Equal(3650, result.TotalPrice);
+        Assert.Equal(["チキン&ビスケットセットx2[drink_s]", "バーガーx1[]", "単品チキンx6[]"], Describe(result));
     }
 
     [Fact]
@@ -120,5 +129,35 @@ public class CheapestComboFinderTests
         var result = CheapestComboFinder.FindCheapest(VariantExpander.Expand([pairOnly]), products);
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public void Regular_SetCostsTheRegularPrice()
+    {
+        var result = Find(regular, ("burger", 1, 0), ("potato_s", 1, 0), ("drink_s", 1, 0));
+
+        Assert.NotNull(result);
+        Assert.Equal(890, result.TotalPrice);
+        Assert.Equal(["バーガーセットx1[drink_s]"], Describe(result));
+    }
+
+    [Fact]
+    public void Regular_LunchOnlySetIsNotUsed()
+    {
+        // ランチならチキン&ビスケットセット（590円）。通常時間は注文できないので キッズチキン + ビスケット
+        var result = Find(regular, ("chicken", 1, 0), ("potato_s", 1, 0), ("biscuit", 1, 0), ("drink_s", 0, 1));
+
+        Assert.NotNull(result);
+        Assert.Equal(880, result.TotalPrice);
+        Assert.Equal(["キッズチキンx1[drink_s]", "ビスケットx1[]"], Describe(result));
+    }
+
+    [Fact]
+    public void Regular_FamilyOrder()
+    {
+        var result = Find(regular, ("chicken", 8, 0), ("potato_s", 2, 0), ("drink_s", 2, 0), ("burger", 1, 0), ("biscuit", 2, 0));
+
+        Assert.NotNull(result);
+        Assert.Equal(3920, result.TotalPrice);
     }
 }
