@@ -27,7 +27,14 @@
             {
                 <div class="product-row">
                     <span class="name">@product.Name</span>
-                    <input type="number" min="0" max="99" inputmode="numeric" aria-label="@($"{product.Name}の必要数")" @bind="product.Required" />
+                    <div class="qty">
+                        @* ＋−ボタンは指で操作する端末でだけ表示する（app.css のメディアクエリ） *@
+                        <button type="button" class="step" aria-label="@($"{product.Name}を1つ減らす")"
+                                disabled="@(calculating || product.Required <= 0)" @onclick="() => Step(product, -1)">−</button>
+                        <input type="number" min="0" max="@MaxRequired" inputmode="numeric" aria-label="@($"{product.Name}の必要数")" @bind="product.Required" />
+                        <button type="button" class="step" aria-label="@($"{product.Name}を1つ増やす")"
+                                disabled="@(calculating || product.Required >= MaxRequired)" @onclick="() => Step(product, 1)">＋</button>
+                    </div>
                 </div>
             }
         </div>
@@ -122,6 +129,9 @@
     private bool calculated;
     private bool calculating;
 
+    // 必要数の上限。入力チェックと＋ボタンの両方で使う
+    private const int MaxRequired = 99;
+
     protected override async Task OnInitializedAsync()
     {
         try
@@ -159,6 +169,16 @@
         ClearResults();
     }
 
+    // ＋−ボタン: 1ずつ増減し、0〜上限に収める（範囲外の数なら近い端になる）。表示中の結果は消さない
+    private void Step(Product product, int delta)
+    {
+        if (calculating)
+        {
+            return;
+        }
+        product.Required = Math.Clamp(product.Required + delta, 0, MaxRequired);
+    }
+
     private void ClearResults()
     {
         calculated = false;
@@ -186,7 +206,7 @@
         ClearResults();
 
         // 0〜99に限ることで、探索の深さと状態数が抑えられる（大きすぎる数でスタックが溢れない）
-        if (menu!.Products.Any(p => p.Required is < 0 or > 99))
+        if (menu!.Products.Any(p => p.Required is < 0 or > MaxRequired))
         {
             inputError = "必要数には0〜99の数を入力してください。";
             return;
