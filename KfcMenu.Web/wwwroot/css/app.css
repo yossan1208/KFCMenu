@@ -234,16 +234,26 @@ body {
 @media (hover: none) and (pointer: coarse) {
     .product-row {
         grid-template-columns: 1fr auto;
+        /* ボタン・入力欄・隙間の大きさ。見出しの幅もここから計算する */
+        --step-size: 44px;
+        --qty-input: 3rem;
+        --qty-gap: 0.3rem;
+    }
+
+    /* 見出しの「必要数」を、ボタンを含めた幅の中央（＝入力欄の真上）に置く */
+    .product-row.header span:last-child {
+        width: calc(var(--step-size) * 2 + var(--qty-input) + var(--qty-gap) * 2);
+        text-align: center;
     }
 
     .qty {
         display: flex;
         align-items: center;
-        gap: 0.3rem;
+        gap: var(--qty-gap);
     }
 
     .qty input {
-        width: 3rem;
+        width: var(--qty-input);
         text-align: center;
     }
 
@@ -251,8 +261,8 @@ body {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 44px;
-        height: 44px;
+        width: var(--step-size);
+        height: var(--step-size);
         padding: 0;
         font-size: 1.3rem;
         border: 1px solid #c8102e;
@@ -263,7 +273,10 @@ body {
         touch-action: manipulation;
     }
 
+    /* 押せないときは赤を薄くするのではなく、グレーにして押せないことをはっきり示す */
     .qty .step:disabled {
-        opacity: 0.4;
+        color: #9e9e9e;
+        border-color: #cfcfcf;
+        background: #f2f2f2;
     }
 }
