@@ -26,6 +26,13 @@ jobs:
       - run: dotnet publish KfcMenu.Web/KfcMenu.Web.csproj -c Release -o publish
       - name: Set base href to the repository subpath
         run: sed -i 's|<base href="/" />|<base href="/${{ github.event.repository.name }}/" />|' publish/wwwroot/index.html
+      # app.css は名前が変わらず10分キャッシュされるので、新しい画面が古いCSSと組み合わさることがある。
+      # 中身から作った印を付けて、版が変わったら必ず新しいCSSを読み込ませる
+      - name: Add a content hash to the app.css link
+        run: |
+          hash=$(sha256sum publish/wwwroot/css/app.css | cut -c1-12)
+          perl -pi -e "s|href=\"css/app.css\"|href=\"css/app.css?v=$hash\"|" publish/wwwroot/index.html
+          grep -q "css/app.css?v=$hash" publish/wwwroot/index.html
       - run: cp publish/wwwroot/index.html publish/wwwroot/404.html
       - run: touch publish/wwwroot/.nojekyll
       - uses: actions/upload-pages-artifact@v5
