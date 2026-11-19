@@ -225,3 +225,45 @@ body {
     font-size: 0.75rem;
     font-weight: normal;
 }
+
+/* 必要数の＋−ボタン: ふだんは隠し、指で操作する端末（入力欄に上下の矢印が出ない）でだけ出す */
+.qty .step {
+    display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .product-row {
+        grid-template-columns: 1fr auto;
+    }
+
+    .qty {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .qty input {
+        width: 3rem;
+        text-align: center;
+    }
+
+    .qty .step {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        font-size: 1.3rem;
+        border: 1px solid #c8102e;
+        border-radius: 0.5rem;
+        background: #fff;
+        color: #c8102e;
+        /* 連打してもダブルタップで画面が拡大されないようにする */
+        touch-action: manipulation;
+    }
+
+    .qty .step:disabled {
+        opacity: 0.4;
+    }
+}
