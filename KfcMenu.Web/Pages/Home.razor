@@ -34,6 +34,16 @@
 
         <button class="calc" @onclick="Calculate" disabled="@calculating">計算</button>
 
+        <div class="service-time" role="group" aria-label="時間帯">
+            <button type="button" class="@(serviceTime == ServiceTime.Lunch ? "selected" : "")"
+                    aria-pressed="@(serviceTime == ServiceTime.Lunch ? "true" : "false")"
+                    disabled="@calculating" aria-label="@($"ランチ {LunchHours}")"
+                    @onclick="() => SelectServiceTime(ServiceTime.Lunch)">ランチ<span class="hours">@LunchHours</span></button>
+            <button type="button" class="@(serviceTime == ServiceTime.Regular ? "selected" : "")"
+                    aria-pressed="@(serviceTime == ServiceTime.Regular ? "true" : "false")"
+                    disabled="@calculating" @onclick="() => SelectServiceTime(ServiceTime.Regular)">通常</button>
+        </div>
+
         @if (calculating)
         {
             <p class="calculating">計算中...</p>
@@ -94,7 +104,15 @@
 </main>
 
 @code {
+    // ランチの時間の表示は MenuTime の境界から作る（時間を変えるときは MenuTime だけ直せばよい）
+    private static readonly string LunchHours =
+        $"{MenuTime.LunchStart.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)}〜{MenuTime.LunchEnd.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)}";
+
     private MenuData? menu;
+    private ServiceTime serviceTime;
+    // 最後に時計から決めた時間帯。手で切り替えても変えない
+    private ServiceTime clockServiceTime;
+    private List<MenuOption> options = new();
     private List<Variant> variants = new();
     private Dictionary<string, string> productNames = new();
     private string? loadError;
@@ -110,13 +128,43 @@
         {
             var json = await Http.GetStringAsync("data/menu.json");
             menu = MenuParser.Parse(json);
-            variants = VariantExpander.Expand(menu.Options);
             productNames = menu.Products.ToDictionary(p => p.Id, p => p.Name);
+            // 開いたときの時間帯は、スマホ（ブラウザ）の現在時刻で決める
+            clockServiceTime = MenuTime.At(TimeOnly.FromDateTime(DateTime.Now));
+            serviceTime = clockServiceTime;
+            ApplyServiceTime();
         }
         catch (Exception ex)
         {
             loadError = ex.Message;
         }
+    }
+
+    // 選んだ時間帯で注文できる購入選択肢だけで計算する
+    private void ApplyServiceTime()
+    {
+        options = MenuTime.AvailableAt(menu!.Options, serviceTime);
+        variants = VariantExpander.Expand(options);
+    }
+
+    // 時間帯を切り替えたら、前の時間帯で出した結果は消す（必要数の入力は残す）
+    private void SelectServiceTime(ServiceTime time)
+    {
+        if (calculating || time == serviceTime)
+        {
+            return;
+        }
+        serviceTime = time;
+        ApplyServiceTime();
+        ClearResults();
+    }
+
+    private void ClearResults()
+    {
+        calculated = false;
+        result = null;
+        recommendations = new();
+        inputError = null;
     }
 
     private async Task Calculate()
@@ -125,10 +173,17 @@
         {
             return;
         }
-        calculated = false;
-        result = null;
-        recommendations = new();
-        inputError = null;
+
+        // 画面を開いたまま 10:00 や 15:00 をまたいだら、時計の時間帯に切り替えてから計算する
+        // （同じ時間帯のうちに手で選んだものはそのまま使う）
+        var now = MenuTime.At(TimeOnly.FromDateTime(DateTime.Now));
+        if (now != clockServiceTime)
+        {
+            clockServiceTime = now;
+            serviceTime = now;
+            ApplyServiceTime();
+        }
+        ClearResults();
 
         // 0〜99に限ることで、探索の深さと状態数が抑えられる（大きすぎる数でスタックが溢れない）
         if (menu!.Products.Any(p => p.Required is < 0 or > 99))
@@ -150,7 +205,7 @@
             StateHasChanged();
             await Task.Delay(1);
             result = CheapestComboFinder.FindCheapest(variants, menu.Products);
-            recommendations = SetRecommender.Recommend(menu.Options, menu.Products, result);
+            recommendations = SetRecommender.Recommend(options, menu.Products, result);
             calculated = true;
         }
         finally

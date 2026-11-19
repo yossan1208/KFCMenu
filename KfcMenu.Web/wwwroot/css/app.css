@@ -193,3 +193,35 @@ body {
     font-size: 0.9rem;
     color: #444;
 }
+
+.service-time {
+    display: flex;
+    gap: 0.5rem;
+    margin: -0.5rem 0 1rem;
+}
+
+.service-time button {
+    flex: 1;
+    padding: 0.6rem 0.3rem;
+    font-size: 0.95rem;
+    border: 1px solid #c8102e;
+    border-radius: 0.5rem;
+    background: #fff;
+    color: #c8102e;
+}
+
+.service-time button.selected {
+    background: #c8102e;
+    color: #fff;
+    font-weight: bold;
+}
+
+.service-time button:disabled {
+    opacity: 0.6;
+}
+
+.service-time .hours {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: normal;
+}

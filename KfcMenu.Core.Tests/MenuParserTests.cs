@@ -47,10 +47,51 @@ public class MenuParserTests
         var menu = TestMenu.Load();
 
         Assert.Equal(16, menu.Products.Count);
-        Assert.Equal(30, menu.Options.Count);
+        Assert.Equal(36, menu.Options.Count);
         Assert.Equal("チキン", menu.Products[0].Name);
-        Assert.Equal("4パック", menu.Options[0].Name);
+        Assert.Equal("骨なしチキン", menu.Products.Single(p => p.Id == "boneless").Name);
+        Assert.Equal("ドリンク S", menu.Products.Single(p => p.Id == "drink_s").Name);
+        Assert.Equal("4ピースパック", menu.Options[0].Name);
         Assert.Equal(1590, menu.Options[0].Price);
+        Assert.Equal(8, menu.Options.Count(o => o.Availability == "lunch"));
+        Assert.Equal(6, menu.Options.Count(o => o.Availability == "regular"));
+        Assert.Equal("ドリンク S", menu.Options.Single(o => o.Id == "drink_s_single").Name);
+        Assert.Equal("ホットドリンク", menu.Options.Single(o => o.Id == "drink_hot_single").Name);
+    }
+
+    [Fact]
+    public void Parse_ReadsAvailability()
+    {
+        var json = """
+            {
+                "products": [ { "id": "a", "name": "A" } ],
+                "options": [
+                    { "id": "any", "name": "いつでも", "price": 100, "includes": { "a": 1 } },
+                    { "id": "lunch", "name": "ランチ", "price": 90, "availability": "lunch", "includes": { "a": 1 } },
+                    { "id": "regular", "name": "通常", "price": 110, "availability": "regular", "includes": { "a": 1 } }
+                ]
+            }
+            """;
+
+        var menu = MenuParser.Parse(json);
+
+        Assert.Equal([null, "lunch", "regular"], menu.Options.Select(o => o.Availability));
+    }
+
+    [Fact]
+    public void Parse_UnknownAvailability_Throws()
+    {
+        var json = """
+            {
+                "products": [ { "id": "a", "name": "A" } ],
+                "options": [ { "id": "x", "name": "書き間違い", "price": 100, "availability": "lunchtime", "includes": { "a": 1 } } ]
+            }
+            """;
+
+        var error = Assert.Throws<InvalidOperationException>(() => MenuParser.Parse(json));
+
+        Assert.Contains("書き間違い", error.Message);
+        Assert.Contains("lunchtime", error.Message);
     }
 
     [Fact]
